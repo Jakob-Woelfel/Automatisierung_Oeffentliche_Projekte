@@ -112,9 +112,3 @@ For email triggers: download the attachment, save to a temp path, call `run_pipe
 For batch processing: loop over files in `input/` and call `run_pipeline()` for each.
 
 No changes to pipeline logic are needed — only the trigger wrapper changes.
-
-## Security note
-
-The original `api_connect.py` contained a hardcoded API key.
-That key has been moved to `.env` and should be **rotated at platform.openai.com**.
-Never commit `.env` to version control.
