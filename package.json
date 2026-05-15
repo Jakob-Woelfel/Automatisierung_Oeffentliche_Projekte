@@ -1,0 +1,24 @@
+{
+  "name": "automatisierung-oeffentliche-projekte",
+  "version": "1.0.0",
+  "description": "Pipeline for processing German public project contract PDFs (Drittmittelverträge)",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "api-connect": "tsx src/api_connect.ts",
+    "build": "tsc",
+    "start:prod": "node dist/main.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "openai": "^4.52.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pdf-parse": "^1.1.4",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
