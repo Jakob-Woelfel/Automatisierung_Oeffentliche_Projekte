@@ -27,8 +27,13 @@ The `openai` npm package is used only as a generic OpenAI-compatible HTTP client
 
 ## Setup
 
+This project uses **pnpm** (pinned via the `packageManager` field; enable with
+`corepack enable pnpm` if you don't have it). Supply-chain hardening — blocked
+dependency install scripts, a minimum release age, and strict peer deps — is
+configured in `pnpm-workspace.yaml`.
+
 ```bash
-npm install
+pnpm install
 cp .env.example .env
 # Edit .env: add your Open Web UI API key (OPENWEBUI_API_KEY)
 # and, if needed, override the endpoint via OPENWEBUI_BASE_URL
@@ -45,14 +50,14 @@ Step 1 automatically falls back to OCR (Tesseract.js, German language) when no e
 ## Run
 
 ```bash
-npm start -- input/my_contract.pdf
+pnpm start input/my_contract.pdf
 ```
 
 Outputs land in `output/<filename>_<timestamp>/`.
 
 To test your Open Web UI connection first:
 ```bash
-npm run api-connect
+pnpm api-connect
 ```
 
 ## Where to change things
@@ -94,6 +99,8 @@ npm run api-connect
 ├── .env                       # Your API key (never commit this)
 ├── .env.example               # Safe template to commit
 ├── package.json
+├── pnpm-workspace.yaml         # pnpm settings + supply-chain hardening
+├── pnpm-lock.yaml              # pnpm lockfile (committed)
 └── tsconfig.json
 ```
 

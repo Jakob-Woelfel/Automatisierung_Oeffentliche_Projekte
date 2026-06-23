@@ -1,0 +1,19 @@
+# pnpm settings. NOTE: pnpm v11 reads its config from HERE, not from .npmrc.
+
+# --- Supply-chain hardening ---
+# Delay adopting brand-new releases (minutes). Defends against installing a
+# version that was just published in a compromised/hijacked release.
+minimumReleaseAge: 1440
+# Warn if node_modules drifts from the lockfile before running a script.
+verifyDepsBeforeRun: warn
+# Surface unmet peer dependencies instead of silently auto-installing them.
+strictPeerDependencies: true
+autoInstallPeers: false
+
+# --- Dependency build-script policy: no install scripts are allowed to run ---
+# Both packages reviewed — neither needs its build script:
+#   esbuild      — pnpm installs its platform binary directly; tsx works without it.
+#   tesseract.js — only script is "opencollective-postinstall" (a funding message).
+allowBuilds:
+  esbuild: false
+  tesseract.js: false
