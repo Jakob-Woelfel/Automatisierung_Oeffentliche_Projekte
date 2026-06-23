@@ -55,7 +55,7 @@ export async function runPipeline(inputPdf: string): Promise<{
   console.log('[1/5] Extracting text from PDF...')
   const rawText = await extractText(inputPdf)
 
-  console.log('[2/5] Sending to OpenAI for structured extraction...')
+  console.log('[2/5] Sending to Open Web UI for structured extraction...')
   const rawJson = await extractContractData(rawText)
 
   console.log('[3/5] Validating extracted data...')

@@ -1,10 +1,10 @@
-import OpenAI from 'openai'
+import LLMClient from 'openai'
 import * as dotenv from 'dotenv'
 
 dotenv.config()
 
 // ── Configuration — edit these to change extraction behavior ──────────────────
-const MODEL = 'gpt-4o-mini'
+const MODEL = 'mistral-small3.1:latest'
 
 const EXTRACTION_PROMPT = `\
 You are a precise document parser for German public project contracts
@@ -36,8 +36,20 @@ Return exactly this JSON structure, nothing else:
 }`
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Strip Markdown code fences some models wrap JSON in before parsing.
+function parseJsonResponse(content: string): Record<string, unknown> {
+  const cleaned = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+  return JSON.parse(cleaned)
+}
+
 export async function extractContractData(text: string): Promise<Record<string, unknown>> {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const client = new LLMClient({
+    apiKey: process.env.OPENWEBUI_API_KEY,
+    baseURL: process.env.OPENWEBUI_BASE_URL || 'https://fcb-wi.fit.fraunhofer.de/ollama/v1',
+  })
 
   const response = await client.chat.completions.create({
     model: MODEL,
@@ -49,5 +61,5 @@ export async function extractContractData(text: string): Promise<Record<string, 
     temperature: 0,
   })
 
-  return JSON.parse(response.choices[0].message.content!)
+  return parseJsonResponse(response.choices[0].message.content!)
 }

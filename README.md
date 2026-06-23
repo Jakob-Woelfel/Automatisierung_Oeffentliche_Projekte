@@ -6,8 +6,8 @@ Minimal TypeScript/Node.js pipeline for processing public project contract PDFs 
 
 ```
 input PDF
-  → [1] extract text          src/pipeline/extract_text.ts
-  → [2] OpenAI extraction     src/pipeline/extract_data.ts
+  → [1] extract text (+ OCR)   src/pipeline/extract_text.ts
+  → [2] LLM extraction         src/pipeline/extract_data.ts
   → [3] schema validation     src/pipeline/validate_data.ts
   → [4] fill PDF templates    src/pipeline/fill_pdf.ts
   → [5] generate email draft  src/pipeline/generate_email.ts
@@ -20,13 +20,27 @@ input PDF
 
 The AI only handles steps 2 and 5. All other steps are deterministic TypeScript.
 
+The LLM runs on a self-hosted **Open Web UI** instance, reached through its
+Ollama-compatible endpoint (`/ollama/v1`). Default model: `mistral-small3.1:latest`.
+The `openai` npm package is used only as a generic OpenAI-compatible HTTP client
+(imported as `LLMClient`) — no request ever goes to OpenAI's servers.
+
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env
-# Edit .env and add your OpenAI API key
+# Edit .env: add your Open Web UI API key (OPENWEBUI_API_KEY)
+# and, if needed, override the endpoint via OPENWEBUI_BASE_URL
 ```
+
+For scanned PDF support, also install Ghostscript:
+
+```bash
+brew install ghostscript
+```
+
+Step 1 automatically falls back to OCR (Tesseract.js, German language) when no embedded text is found. Ghostscript renders each page to a PNG; Tesseract reads it. Text-based PDFs work without Ghostscript.
 
 ## Run
 
@@ -36,7 +50,7 @@ npm start -- input/my_contract.pdf
 
 Outputs land in `output/<filename>_<timestamp>/`.
 
-To test your OpenAI connection first:
+To test your Open Web UI connection first:
 ```bash
 npm run api-connect
 ```
@@ -45,8 +59,9 @@ npm run api-connect
 
 | What | File |
 |------|------|
-| OpenAI extraction prompt | `src/pipeline/extract_data.ts` → `EXTRACTION_PROMPT` |
-| OpenAI model | `src/pipeline/extract_data.ts` → `MODEL` |
+| Extraction prompt | `src/pipeline/extract_data.ts` → `EXTRACTION_PROMPT` |
+| LLM model | `src/pipeline/extract_data.ts` & `generate_email.ts` → `MODEL` |
+| LLM endpoint / API key | `.env` → `OPENWEBUI_BASE_URL`, `OPENWEBUI_API_KEY` |
 | Extracted fields (schema) | `src/schema/contract_schema.ts` → `ContractDataSchema` |
 | PDF field mapping | `src/config/field_mapping.ts` |
 | Email prompt / style | `src/pipeline/generate_email.ts` → `EMAIL_SYSTEM_PROMPT` |
@@ -61,11 +76,11 @@ npm run api-connect
 │   ├── api_connect.ts             # Standalone connection test
 │   │
 │   ├── pipeline/                  # One file per pipeline step
-│   │   ├── extract_text.ts        # Step 1: PDF → raw text (pdf-parse)
-│   │   ├── extract_data.ts        # Step 2: text → JSON via OpenAI
+│   │   ├── extract_text.ts        # Step 1: PDF → raw text (pdf-parse, OCR fallback via Tesseract.js)
+│   │   ├── extract_data.ts        # Step 2: text → JSON via LLM (Open Web UI)
 │   │   ├── validate_data.ts       # Step 3: JSON → validated Zod object
 │   │   ├── fill_pdf.ts            # Step 4: fill PDF form fields (pdf-lib)
-│   │   └── generate_email.ts      # Step 5: German email draft via OpenAI
+│   │   └── generate_email.ts      # Step 5: German email draft via LLM (Open Web UI)
 │   │
 │   ├── schema/
 │   │   └── contract_schema.ts     # ContractData Zod schema + formatDate/formatAmount
