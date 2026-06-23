@@ -2,11 +2,17 @@
   "name": "automatisierung-oeffentliche-projekte",
   "version": "1.0.0",
   "description": "Pipeline for processing German public project contract PDFs (Drittmittelverträge)",
+  "packageManager": "pnpm@11.1.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "start": "tsx src/main.ts",
     "api-connect": "tsx src/api_connect.ts",
     "build": "tsc",
-    "start:prod": "node dist/main.js"
+    "start:prod": "node dist/main.js",
+    "verify-deps": "pnpm install --frozen-lockfile"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
