@@ -1,4 +1,4 @@
-import OpenAI from 'openai'
+import LLMClient from 'openai'
 import * as dotenv from 'dotenv'
 import type { ContractData } from '../schema/contract_schema'
 import { formatDate, formatAmount } from '../schema/contract_schema'
@@ -6,7 +6,7 @@ import { formatDate, formatAmount } from '../schema/contract_schema'
 dotenv.config()
 
 // ── Configuration — edit these to change email behavior ───────────────────────
-const MODEL = 'gpt-4o-mini'
+const MODEL = 'mistral-small3.1:latest'
 
 const EMAIL_SYSTEM_PROMPT =
   'Du bist ein Assistent für die Drittmittelverwaltung einer deutschen Hochschule. ' +
@@ -17,7 +17,10 @@ const EMAIL_SYSTEM_PROMPT =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function generateEmailDraft(data: ContractData): Promise<string> {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const client = new LLMClient({
+    apiKey: process.env.OPENWEBUI_API_KEY,
+    baseURL: process.env.OPENWEBUI_BASE_URL || 'https://fcb-wi.fit.fraunhofer.de/ollama/v1',
+  })
 
   const projectSummary = [
     `Projektname:       ${data.project_name ?? '[unbekannt]'}`,

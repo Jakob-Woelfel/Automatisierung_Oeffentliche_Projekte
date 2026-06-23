@@ -1,19 +1,22 @@
 /**
- * Standalone OpenAI connectivity test.
- * Run before main.ts to verify your API key works.
+ * Standalone Open Web UI connectivity test.
+ * Run before main.ts to verify your API key and endpoint work.
  * Usage: npm run api-connect
  */
 
-import OpenAI from 'openai'
+import LLMClient from 'openai'
 import * as dotenv from 'dotenv'
 
 dotenv.config()
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const client = new LLMClient({
+  apiKey: process.env.OPENWEBUI_API_KEY,
+  baseURL: process.env.OPENWEBUI_BASE_URL || 'https://fcb-wi.fit.fraunhofer.de/ollama/v1',
+})
 
 client.chat.completions
   .create({
-    model: 'gpt-4o-mini',
+    model: 'mistral-small3.1:latest',
     messages: [{ role: 'user', content: 'Schreibe ein Haiku über Automatisierung.' }],
   })
   .then((response) => {
