@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drittmittel-Pipeline</title>
+<style>
+  :root {
+    --bg: #0f1525;
+    --card: #182135;
+    --card-2: #1f2a42;
+    --line: #2b3852;
+    --text: #e8edf6;
+    --muted: #93a1bd;
+    --accent: #4f8cff;
+    --accent-2: #3a6fd8;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2640 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.4px; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .badge {
+    display: inline-block; margin-top: 10px; padding: 4px 11px; border-radius: 999px;
+    background: rgba(52,211,153,.12); color: var(--ok); font-size: 12px; font-weight: 600;
+    border: 1px solid rgba(52,211,153,.25);
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; margin-bottom: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  }
+  label.field { display: block; font-size: 13px; color: var(--muted); margin: 0 0 7px; font-weight: 600; }
+  select {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card-2); color: var(--text); font-size: 15px; appearance: none;
+  }
+  .drop {
+    margin-top: 18px; border: 1.5px dashed var(--line); border-radius: 12px; padding: 34px 18px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    background: var(--card-2);
+  }
+  .drop:hover, .drop.drag { border-color: var(--accent); background: #1d294180; }
+  .drop .ico { font-size: 30px; }
+  .drop .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .drop .file { color: var(--accent); font-weight: 600; margin-top: 8px; word-break: break-all; }
+  button.go {
+    margin-top: 18px; width: 100%; padding: 13px; border: 0; border-radius: 11px;
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: background .15s, opacity .15s;
+  }
+  button.go:hover { background: var(--accent-2); }
+  button.go:disabled { opacity: .5; cursor: not-allowed; }
+  .spinner {
+    display: inline-block; width: 15px; height: 15px; margin-right: 8px; vertical-align: -2px;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+  .alert { border-radius: 11px; padding: 12px 14px; font-size: 14px; }
+  .alert.err { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.3); color: #ffd9d9; }
+  h2.section { font-size: 14px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 2px 0 14px; }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.kv td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.kv td.k { color: var(--muted); width: 42%; word-break: break-word; }
+  table.kv td.v { word-break: break-word; }
+  td.v.empty { color: var(--err); font-style: italic; }
+  .missing { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+    background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #ffe9b8; }
+  textarea {
+    width: 100%; min-height: 220px; resize: vertical; border-radius: 10px; padding: 12px;
+    border: 1px solid var(--line); background: var(--card-2); color: var(--text);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  a.dl, button.copy {
+    display: inline-flex; align-items: center; gap: 7px; text-decoration: none; cursor: pointer;
+    padding: 9px 13px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    background: var(--card-2); border: 1px solid var(--line); color: var(--text);
+  }
+  a.dl:hover, button.copy:hover { border-color: var(--accent); color: var(--accent); }
+  .outdir { color: var(--muted); font-size: 12px; margin-top: 14px; word-break: break-all; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Drittmittel-Pipeline</h1>
+      <p>Vertrags-PDF hochladen — Formulare &amp; E-Mail-Entwurf werden automatisch erzeugt.</p>
+      <span class="badge">● Lokal · Daten &amp; Schlüssel verlassen diesen Rechner nicht</span>
+    </header>
+
+    <div class="card">
+      <label class="field" for="case">Fall / Vorgang</label>
+      <select id="case"></select>
+
+      <div class="drop" id="drop">
+        <div class="ico">📄</div>
+        <div>PDF hierher ziehen oder <u>klicken zum Auswählen</u></div>
+        <div class="hint">Nur PDF-Dateien</div>
+        <div class="file hidden" id="fileName"></div>
+        <input type="file" id="fileInput" accept="application/pdf" class="hidden" />
+      </div>
+
+      <button class="go" id="go" disabled>Verarbeiten</button>
+    </div>
+
+    <div class="card alert err hidden" id="error"></div>
+
+    <div class="card hidden" id="results">
+      <h2 class="section">Extrahierte Daten</h2>
+      <table class="kv"><tbody id="kvBody"></tbody></table>
+      <div class="missing hidden" id="missing"></div>
+
+      <h2 class="section" style="margin-top:26px">E-Mail-Entwurf</h2>
+      <textarea id="email" readonly></textarea>
+      <div class="row">
+        <button class="copy" id="copyEmail">📋 E-Mail kopieren</button>
+      </div>
+
+      <h2 class="section" style="margin-top:26px">Dateien</h2>
+      <div class="row" id="files"></div>
+      <div class="outdir" id="outdir"></div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const caseSel = $('case'), drop = $('drop'), fileInput = $('fileInput'),
+        fileName = $('fileName'), go = $('go'),
+        errorBox = $('error'), results = $('results'),
+        kvBody = $('kvBody'), missing = $('missing'),
+        emailBox = $('email'), filesBox = $('files'), outdir = $('outdir');
+  let chosen = null;
+
+  // Populate the case dropdown from the server.
+  fetch('/api/cases').then(r => r.json()).then(data => {
+    for (const c of data.cases) {
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.displayName + '  (' + c.id + ')';
+      if (c.id === data.default) opt.selected = true;
+      caseSel.appendChild(opt);
+    }
+  }).catch(() => showError('Cases konnten nicht geladen werden — läuft der Server?'));
+
+  function pickFile(f) {
+    if (!f) return;
+    if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
+      return showError('Bitte eine PDF-Datei auswählen.');
+    }
+    chosen = f;
+    fileName.textContent = f.name;
+    fileName.classList.remove('hidden');
+    go.disabled = false;
+    hideError();
+  }
+
+  drop.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => pickFile(e.target.files[0]));
+  ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('drag');
+  }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('drag');
+  }));
+  drop.addEventListener('drop', e => pickFile(e.dataTransfer.files[0]));
+
+  go.addEventListener('click', async () => {
+    if (!chosen) return;
+    hideError(); results.classList.add('hidden');
+    go.disabled = true;
+    go.innerHTML = '<span class="spinner"></span>PDF wird verarbeitet …';
+    try {
+      const buf = await chosen.arrayBuffer();
+      const qs = '?case=' + encodeURIComponent(caseSel.value) +
+                 '&name=' + encodeURIComponent(chosen.name);
+      const res = await fetch('/api/process' + qs, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/pdf' },
+        body: buf,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('Fehler ' + res.status));
+      renderResults(data);
+    } catch (err) {
+      showError(err.message || String(err));
+    } finally {
+      go.disabled = false;
+      go.textContent = 'Verarbeiten';
+    }
+  });
+
+  function renderResults(data) {
+    // Key/value table of the extracted fields (missing_fields shown separately).
+    kvBody.innerHTML = '';
+    const entries = Object.entries(data.extractedData || {})
+      .filter(([k]) => k !== 'missing_fields');
+    for (const [k, v] of entries) {
+      const tr = document.createElement('tr');
+      const empty = v === null || v === '' || v === undefined;
+      const val = empty ? '— fehlt —'
+        : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+      tr.innerHTML = '<td class="k"></td><td class="v' + (empty ? ' empty' : '') + '"></td>';
+      tr.children[0].textContent = k;
+      tr.children[1].textContent = val;
+      kvBody.appendChild(tr);
+    }
+
+    const mf = data.extractedData && data.extractedData.missing_fields;
+    if (Array.isArray(mf) && mf.length) {
+      missing.textContent = '⚠ Fehlende Felder: ' + mf.join(', ');
+      missing.classList.remove('hidden');
+    } else {
+      missing.classList.add('hidden');
+    }
+
+    emailBox.value = data.emailDraft || '';
+
+    filesBox.innerHTML = '';
+    for (const f of data.files || []) {
+      const a = document.createElement('a');
+      a.className = 'dl'; a.href = f.download; a.textContent = '⬇ ' + f.name;
+      a.setAttribute('download', '');
+      filesBox.appendChild(a);
+    }
+    outdir.textContent = data.outputDir ? ('Gespeichert in: ' + data.outputDir) : '';
+    results.classList.remove('hidden');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  $('copyEmail').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(emailBox.value);
+      const b = $('copyEmail'); const t = b.textContent;
+      b.textContent = '✓ Kopiert'; setTimeout(() => (b.textContent = t), 1400);
+    } catch { emailBox.select(); document.execCommand('copy'); }
+  });
+
+  function showError(msg) { errorBox.textContent = '⚠ ' + msg; errorBox.classList.remove('hidden'); }
+  function hideError() { errorBox.classList.add('hidden'); }
+</script>
+</body>
+</html>
