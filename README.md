@@ -4,21 +4,34 @@ Minimal TypeScript/Node.js pipeline for processing public project contract PDFs 
 
 ## How it works
 
+The pipeline is a **generic engine** driven by pluggable **case modules**. The engine
+(`src/core/`) knows nothing about any specific document type; everything case-specific lives in a
+`CaseModule` under `src/cases/<id>/`, and every kind of output artifact (a fillable PDF, an Excel
+workbook, …) is produced by a `Renderer` looked up from a registry. Adding a new automation = add a
+case; adding a new output format = add a renderer.
+
 ```
 input PDF
   → [1] extract text (+ OCR)   src/pipeline/extract_text.ts
-  → [2] LLM extraction         src/pipeline/extract_data.ts
-  → [3] schema validation     src/pipeline/validate_data.ts
-  → [4] fill PDF templates    src/pipeline/fill_pdf.ts
-  → [5] generate email draft  src/pipeline/generate_email.ts
-  → output/
+  → [2] LLM extraction         src/core/extract.ts    (prompt from the case)
+  → [3] schema validation      src/core/validate.ts   (schema from the case)
+  → [ ] derive (optional calc) case.derive            (deterministic, no AI)
+  → [4] render documents       src/core/renderers/*   (case.documents)
+  → [5] generate email draft   src/core/email.ts      (prompt from the case)
+  → output/<stem>_<timestamp>/[<subfolder>]/
         extracted_data.json
-        anzeige_drimi_filled.pdf
-        erklaerung_filled.pdf
+        <document>_filled.pdf / <document>.xlsm …
         email_draft.txt
 ```
 
 The AI only handles steps 2 and 5. All other steps are deterministic TypeScript.
+
+Two cases ship today:
+
+- **`oeffentlich`** (default) — Drittmittel-/Fördervertrag: fills Anzeige + Erklärung Drittmittel.
+- **`unterauftrag`** — UBT wissenschaftliche Dienstleistung / subcontract: reuses the two Drittmittel
+  forms, adds the *Erklärung zur steuerlichen Behandlung* PDF and the UBT *Kalkulations*-Excel, and
+  nests outputs in a PR-Nummer subfolder. See [Cases](#cases).
 
 The LLM runs on a self-hosted **Open Web UI** instance, reached through its
 Ollama-compatible endpoint (`/ollama/v1`). Default model: `mistral-small3.1:latest`.
@@ -50,10 +63,18 @@ Step 1 automatically falls back to OCR (Tesseract.js, German language) when no e
 ## Run
 
 ```bash
+# default case (Öffentliche Projekte)
 pnpm start input/my_contract.pdf
+
+# pick a case
+pnpm start -- --case=unterauftrag input/my_subcontract.pdf
+
+# run the calculation unit tests
+pnpm test
 ```
 
-Outputs land in `output/<filename>_<timestamp>/`.
+Outputs land in `output/<filename>_<timestamp>/` (the `unterauftrag` case nests them in a
+PR-Nummer subfolder).
 
 To test your Open Web UI connection first:
 ```bash
@@ -62,65 +83,106 @@ pnpm api-connect
 
 ## Where to change things
 
+Everything case-specific lives in one folder per case, `src/cases/<id>/`:
+
 | What | File |
 |------|------|
-| Extraction prompt | `src/pipeline/extract_data.ts` → `EXTRACTION_PROMPT` |
-| LLM model | `src/pipeline/extract_data.ts` & `generate_email.ts` → `MODEL` |
-| LLM endpoint / API key | `.env` → `OPENWEBUI_BASE_URL`, `OPENWEBUI_API_KEY` |
-| Extracted fields (schema) | `src/schema/contract_schema.ts` → `ContractDataSchema` |
-| PDF field mapping | `src/config/field_mapping.ts` |
-| Email prompt / style | `src/pipeline/generate_email.ts` → `EMAIL_SYSTEM_PROMPT` |
-| Which PDF templates to fill | `src/main.ts` → `PDF_TEMPLATES` |
+| Extraction prompt / model | `src/cases/<id>/index.ts` → `extraction` |
+| Extracted fields (schema) | `src/cases/<id>/schema.ts` |
+| Which documents to produce | `src/cases/<id>/index.ts` → `documents` |
+| PDF field mapping / checkboxes | the `DocumentSpec` in `src/cases/<id>/index.ts` (or `shared/drittmittel_docs.ts` for the reused forms) |
+| Deterministic calculation | `src/cases/<id>/calc.ts` (+ `case.derive`) |
+| Email prompt / recipient | `src/cases/<id>/index.ts` → `email` |
+| Register a case | `src/cases/registry.ts` |
+| LLM endpoint / API key / default model | `.env`, `src/core/llm.ts` |
+| New output format (renderer) | `src/core/renderers/` + register in `renderers/index.ts` |
 
 ## Project structure
 
 ```
 .
 ├── src/
-│   ├── main.ts                    # Entry point — run this
+│   ├── main.ts                    # CLI entry point (parses --case) + re-exports runPipeline
 │   ├── api_connect.ts             # Standalone connection test
 │   │
-│   ├── pipeline/                  # One file per pipeline step
-│   │   ├── extract_text.ts        # Step 1: PDF → raw text (pdf-parse, OCR fallback via Tesseract.js)
-│   │   ├── extract_data.ts        # Step 2: text → JSON via LLM (Open Web UI)
-│   │   ├── validate_data.ts       # Step 3: JSON → validated Zod object
-│   │   ├── fill_pdf.ts            # Step 4: fill PDF form fields (pdf-lib)
-│   │   └── generate_email.ts      # Step 5: German email draft via LLM (Open Web UI)
+│   ├── core/                      # Generic, case-agnostic engine
+│   │   ├── pipeline.ts            # Orchestration (runPipeline)
+│   │   ├── types.ts               # CaseModule, DocumentSpec, Renderer, FieldMapping, CellEdit
+│   │   ├── extract.ts             # Step 2: text → JSON via LLM (prompt from the case)
+│   │   ├── validate.ts            # Step 3: JSON → validated Zod object (schema from the case)
+│   │   ├── email.ts               # Step 5: email draft via LLM (prompt from the case)
+│   │   ├── llm.ts                 # Shared Open Web UI client + default model
+│   │   └── renderers/             # One renderer per artifact kind
+│   │       ├── pdf_form.ts        #   'pdf-form'    — fill AcroForm PDFs (pdf-lib)
+│   │       ├── excel_patch.ts     #   'excel-patch' — surgical .xlsm cell patch (fflate)
+│   │       └── index.ts           #   kind → renderer registry
 │   │
-│   ├── schema/
-│   │   └── contract_schema.ts     # ContractData Zod schema + formatDate/formatAmount
+│   ├── cases/                     # One folder per document type
+│   │   ├── registry.ts            # case id → CaseModule (+ DEFAULT_CASE)
+│   │   ├── oeffentlich/           # Drittmittel-/Fördervertrag (default)
+│   │   └── unterauftrag/          # UBT wiss. Dienstleistung (schema, calc, index, test)
 │   │
-│   └── config/
-│       └── field_mapping.ts       # PDF field name → ContractData mapping
+│   ├── shared/                    # Reusable cross-case pieces
+│   │   ├── format.ts              # formatDate / formatAmount / today
+│   │   └── drittmittel_docs.ts    # Anzeige + Erklärung Drittmittel DocumentSpecs (via DrittmittelView)
+│   │
+│   └── pipeline/
+│       └── extract_text.ts        # Step 1: PDF → raw text (pdf-parse, OCR fallback via Tesseract.js)
 │
 ├── pdf_templates/             # Source PDF forms (read-only)
+├── xlsx_templates/            # Source Excel workbooks (read-only)
 ├── input/                     # Drop contract PDFs here
 ├── output/                    # Generated outputs (gitignored)
-├── .env                       # Your API key (never commit this)
-├── .env.example               # Safe template to commit
+├── .env / .env.example
 ├── package.json
 ├── pnpm-workspace.yaml         # pnpm settings + supply-chain hardening
-├── pnpm-lock.yaml              # pnpm lockfile (committed)
+├── pnpm-lock.yaml
 └── tsconfig.json
 ```
 
-## Adding a new PDF template
+## Cases
 
-1. Add a mapping dict in `src/config/field_mapping.ts` — values are either `keyof ContractData` strings or `(d: ContractData) => string` functions
-2. Register it in `TEMPLATE_MAPPINGS` using the PDF filename stem as key
-3. Add it to `PDF_TEMPLATES` in `src/main.ts`
+A **case** is a `CaseModule<T>` (`src/core/types.ts`): a schema, an extraction prompt, a list of
+`documents` to produce, an optional `derive` (deterministic calc), an optional `outputSubdir`, and
+an `email` config. The engine runs any case generically.
 
-## Adding a new document type (future)
+### `unterauftrag` (UBT wissenschaftliche Dienstleistung)
 
-1. Create a new Zod schema in `src/schema/`
-2. Write a new extraction prompt in `src/pipeline/extract_data.ts`
-3. Create new PDF templates and add field mappings in `src/config/`
-4. Add the new templates to `PDF_TEMPLATES` in `src/main.ts`
+Reuses the shared Drittmittel forms via a `DrittmittelView`, and adds:
+
+- **Erklärung zur steuerlichen Behandlung** (PDF) — mostly static checkboxes; `Inland/EU/Drittland`
+  ankreuzen follows `partnerland`.
+- **UBT Kalkulations-Excel** (`.xlsm`) — the workbook is structure-locked, formula-driven and
+  macro-enabled, so we **do not** re-emit it. The `excel-patch` renderer surgically writes only a
+  few cells inside the ZIP, preserves everything else (protection, formulas, form controls, macros),
+  drops the stale `calcChain.xml`, and sets `fullCalcOnLoad` so Excel recomputes on open. Cells
+  written: `Personalkosten!I21` = Stunden (PT × 10) and `Gesamtkalkulation!H35` = Gesamt-Nettosumme.
+
+Only three numbers drive the calculation (`src/cases/unterauftrag/calc.ts`): the fixed **PT-Satz**
+(config constant — currently a `TODO` placeholder), **PT** and **gesamtnetto** (both from the
+contract). Overhead and Umsatzsteuer are set by the UBT Referat and are out of scope.
+
+> Still `TODO` before a production run: the real PT-Satz, the exact `Daten zum Auftrag` input cells,
+> verifying the `H35` derivation against a real sample, and tuning the extraction prompt on real
+> (anonymised) subcontract PDFs.
+
+## Adding a new case
+
+1. `src/cases/<id>/schema.ts` — a Zod schema (`.nullable().default(null)` fields + `missing_fields`).
+2. `src/cases/<id>/index.ts` — export a `CaseModule`: extraction prompt, `documents` (reuse
+   `shared/drittmittel_docs.ts` where possible, add case-specific `DocumentSpec`s), optional
+   `derive`/`outputSubdir`, and `email`.
+3. Register it in `src/cases/registry.ts`.
+4. Only if you need a **new output format**: add a `Renderer` in `src/core/renderers/` and register
+   it in `renderers/index.ts`.
+
+No changes to `src/core/` or `src/main.ts` are needed to add a case.
 
 ## Scaling to Azure / email triggers
 
-`src/main.ts` exports `runPipeline(inputPdf: string): Promise<{...}>` as a plain async function.
-To deploy on Azure:
+`src/main.ts` re-exports `runPipeline(inputPdf: string, opts?: { case?: string }): Promise<RunResult>`
+as a plain async function (defined in `src/core/pipeline.ts`). The optional `case` selects the
+case module; omitting it uses the default (`oeffentlich`). To deploy on Azure:
 
 ```typescript
 // azure_function/index.ts
@@ -129,7 +191,7 @@ import { runPipeline } from '../src/main'
 
 const blobTrigger: AzureFunction = async (context: Context): Promise<void> => {
   // Save blob to temp file, then:
-  await runPipeline('/tmp/contract.pdf')
+  await runPipeline('/tmp/contract.pdf', { case: 'unterauftrag' })
 }
 
 export default blobTrigger
