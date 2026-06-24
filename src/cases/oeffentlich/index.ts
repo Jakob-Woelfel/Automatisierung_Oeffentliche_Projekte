@@ -14,9 +14,9 @@ import {
 } from '../../shared/drittmittel_docs'
 import { formatDate, formatAmount } from '../../shared/format'
 
-const ANZEIGE_TEMPLATE = 'pdf_templates/Anzeige-DriMi_Stand-Mai-2024.pdf'
+const ANZEIGE_TEMPLATE = 'templates/oeffentlich/Anzeige-DriMi_Stand-Mai-2024.pdf'
 const ERKLAERUNG_TEMPLATE =
-  'pdf_templates/Erklaerung-zum-Forschungs--und-Drittmittelvorhaben_Stand-November-2024.pdf'
+  'templates/oeffentlich/Erklaerung-zum-Forschungs--und-Drittmittelvorhaben_Stand-November-2024.pdf'
 
 const EXTRACTION_PROMPT = `\
 You are a precise document parser for German public project contracts
