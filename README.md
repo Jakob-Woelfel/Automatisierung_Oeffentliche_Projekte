@@ -16,7 +16,7 @@ case; adding a new output format = add a renderer.
 
 ```
 input PDF
-  → [1] extract text (+ OCR)   src/pipeline/extract_text.ts
+  → [1] extract text (+ OCR)   src/core/extract_text.ts
   → [2] LLM extraction         src/core/extract.ts    (prompt from the case)
   → [3] schema validation      src/core/validate.ts   (schema from the case)
   → [ ] derive (optional calc) case.derive            (deterministic, no AI)
@@ -134,6 +134,7 @@ Everything case-specific lives in one folder per case, `src/cases/<id>/`:
 │   ├── core/                      # Generic, case-agnostic engine
 │   │   ├── pipeline.ts            # Orchestration (runPipeline)
 │   │   ├── types.ts               # CaseModule, DocumentSpec, Renderer, FieldMapping, CellEdit
+│   │   ├── extract_text.ts        # Step 1: PDF → raw text (pdf-parse, OCR fallback via Tesseract.js)
 │   │   ├── extract.ts             # Step 2: text → JSON via LLM (prompt from the case)
 │   │   ├── validate.ts            # Step 3: JSON → validated Zod object (schema from the case)
 │   │   ├── email.ts               # Step 5: email draft via LLM (prompt from the case)
@@ -148,15 +149,13 @@ Everything case-specific lives in one folder per case, `src/cases/<id>/`:
 │   │   ├── oeffentlich/           # Drittmittel-/Fördervertrag (default)
 │   │   └── unterauftrag/          # UBT wiss. Dienstleistung (schema, calc, index, test)
 │   │
-│   ├── shared/                    # Reusable cross-case pieces
-│   │   ├── format.ts              # formatDate / formatAmount / today
-│   │   └── drittmittel_docs.ts    # Anzeige + Erklärung Drittmittel DocumentSpecs (via DrittmittelView)
-│   │
-│   └── pipeline/
-│       └── extract_text.ts        # Step 1: PDF → raw text (pdf-parse, OCR fallback via Tesseract.js)
+│   └── shared/                    # Reusable cross-case pieces
+│       ├── format.ts              # formatDate / formatAmount / today
+│       └── drittmittel_docs.ts    # Anzeige + Erklärung Drittmittel DocumentSpecs (via DrittmittelView)
 │
-├── pdf_templates/             # Source PDF forms (read-only)
-├── xlsx_templates/            # Source Excel workbooks (read-only)
+├── templates/                 # Source form templates, one folder per case (read-only)
+│   ├── oeffentlich/           #   Anzeige + Erklärung Drittmittel PDFs
+│   └── unterauftrag/          #   the above + steuerliche-Behandlung PDF + Kalkulations-.xlsm
 ├── input/                     # Drop contract PDFs here
 ├── output/                    # Generated outputs (gitignored)
 ├── .env / .env.example

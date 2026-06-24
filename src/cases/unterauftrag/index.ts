@@ -21,12 +21,12 @@ import {
 } from '../../shared/drittmittel_docs'
 import { formatDate, formatAmount, today } from '../../shared/format'
 
-const ANZEIGE_TEMPLATE = 'pdf_templates/Anzeige-DriMi_Stand-Mai-2024.pdf'
+const ANZEIGE_TEMPLATE = 'templates/unterauftrag/Anzeige-DriMi_Stand-Mai-2024.pdf'
 const ERKLAERUNG_TEMPLATE =
-  'pdf_templates/Erklaerung-zum-Forschungs--und-Drittmittelvorhaben_Stand-November-2024.pdf'
-const STEUERLICHE_TEMPLATE = 'pdf_templates/Erklaerung-zur-steuerlichen-Behandlung_Stand-November-2023.pdf'
+  'templates/unterauftrag/Erklaerung-zum-Forschungs--und-Drittmittelvorhaben_Stand-November-2024.pdf'
+const STEUERLICHE_TEMPLATE = 'templates/unterauftrag/Erklaerung-zur-steuerlichen-Behandlung_Stand-November-2023.pdf'
 const KALKULATION_TEMPLATE =
-  'xlsx_templates/Wissenschaftliche-Dienstleistung-Kalkulationsunterlagen-ab-01_02_2025_Stand-April-2025.xlsm'
+  'templates/unterauftrag/Wissenschaftliche-Dienstleistung-Kalkulationsunterlagen-ab-01_02_2025_Stand-April-2025.xlsm'
 
 // SCAFFOLD prompt — tune against real anonymised Fraunhofer subcontracts.
 const EXTRACTION_PROMPT = `\

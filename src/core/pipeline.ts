@@ -2,7 +2,7 @@
  * Generic pipeline engine — orchestrates one run for a given case.
  *
  *   input PDF
- *     → extract text            (pipeline/extract_text)
+ *     → extract text            (core/extract_text)
  *     → LLM extraction          (core/extract,  case.extraction.prompt)
  *     → schema validation       (core/validate, case.schema)
  *     → derive (optional calc)  (case.derive)
@@ -17,7 +17,7 @@ import path from 'path'
 import fs from 'fs'
 import { writeFile } from 'fs/promises'
 
-import { extractText } from '../pipeline/extract_text'
+import { extractText } from './extract_text'
 import { extractData } from './extract'
 import { validateData } from './validate'
 import { generateEmail } from './email'
