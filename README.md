@@ -2,6 +2,10 @@
 
 Minimal TypeScript/Node.js pipeline for processing public project contract PDFs (Drittmittelverträge / Förderverträge).
 
+Drive it from the **command line** (`pnpm start`) or a **local web interface** (`pnpm web`) — both run
+the same pipeline, with all processing and secrets staying on your machine. See
+[Weboberfläche](#weboberfläche-lokale-web-app).
+
 ## How it works
 
 The pipeline is a **generic engine** driven by pluggable **case modules**. The engine
@@ -80,6 +84,28 @@ To test your Open Web UI connection first:
 ```bash
 pnpm api-connect
 ```
+
+### Weboberfläche (lokale Web-App)
+
+Statt der CLI lässt sich die Pipeline auch über eine schlichte Browser-Oberfläche bedienen:
+
+```bash
+pnpm web                 # dann http://localhost:3000 öffnen
+PORT=4000 pnpm web       # anderer Port
+```
+
+PDF per Drag-&-Drop hochladen, Fall auswählen, „Verarbeiten" klicken — die extrahierten
+Felder, der E-Mail-Entwurf und Download-Links zu den erzeugten Formularen erscheinen direkt
+auf der Seite. Es entstehen dieselben `output/<filename>_<timestamp>/`-Ordner wie über die CLI.
+
+Wichtig: Dies ist eine **lokale** Web-App. Der Browser spricht nur mit `localhost`; die gesamte
+Verarbeitung, die `.env` (inkl. `OPENWEBUI_API_KEY`) und der LLM-Aufruf bleiben auf diesem
+Rechner. Der Server ist bewusst abhängigkeitsfrei (nur Node-Bordmittel, `src/web/server.ts`) und
+ein dünner Wrapper um `runPipeline()` — kein Express, nichts neu zu prüfen.
+
+> Hinweis: GitHub Pages o. ä. scheidet aus, weil dort kein Node läuft und jedes ausgelieferte
+> Geheimnis öffentlich wäre. Eine öffentliche Oberfläche bräuchte ein getrenntes Backend, das
+> die `.env` hält — diese lokale App ist dafür die direkte Vorstufe.
 
 ## Where to change things
 

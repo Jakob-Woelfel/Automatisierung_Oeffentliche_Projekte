@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "tsx src/main.ts",
+    "web": "tsx src/web/server.ts",
     "api-connect": "tsx src/api_connect.ts",
     "build": "tsc",
     "test": "vitest run",
