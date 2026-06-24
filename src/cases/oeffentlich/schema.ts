@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+/**
+ * Schema for the "Öffentliche Projekte" case (Drittmittel-/Fördervertrag).
+ * All fields nullable with default null so a partial extraction still validates;
+ * unfound fields are recorded in `missing_fields` instead of throwing.
+ */
 export const ContractDataSchema = z.object({
   project_name: z.string().nullable().default(null),
   contract_partner: z.string().nullable().default(null),
@@ -16,15 +21,3 @@ export const ContractDataSchema = z.object({
 })
 
 export type ContractData = z.infer<typeof ContractDataSchema>
-
-export function formatDate(date: string | null): string {
-  if (!date) return ''
-  // Split directly to avoid timezone-shift from new Date(isoString)
-  const [year, month, day] = date.split('-').map(Number)
-  return `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}`
-}
-
-export function formatAmount(amount: number | null): string {
-  if (amount === null) return ''
-  return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
-}
