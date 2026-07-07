@@ -1,7 +1,7 @@
 /**
  * Reusable document specs for the two Drittmittel PDF forms shared across cases:
  *   - Anzeige zur Annahme eingeworbener privater Drittmittel
- *   - Erklärung zum Forschungs- und Drittmittelvorhaben
+ *   - Erklärung zum Forschungs- und Drittmittelvorhaben 
  *
  * These forms are case-agnostic. A case adapts its own data shape to the common
  * `DrittmittelView` and gets the field mapping for free — this is the concrete
