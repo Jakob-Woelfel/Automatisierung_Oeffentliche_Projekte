@@ -33,6 +33,29 @@ export interface DrittmittelView {
   kennzeichen: string | null
 }
 
+/**
+ * Splits a string at the given absolute cutoff positions, mirroring the
+ * original PyMuPDF field-splitting behaviour (e.g. text[:35], text[35:95], text[95:]).
+ * `splitText(s, 35)` → [s[0:35], s[35:]]
+ * `splitText(s, 35, 95)` → [s[0:35], s[35:95], s[95:]]
+ */
+function splitText(text: string | null | undefined, ...limits: number[]): string[] {
+  const s = text ?? ''
+  const parts: string[] = []
+  let start = 0
+  for (const limit of limits) {
+    parts.push(s.slice(start, limit))
+    start = limit
+  }
+  parts.push(s.slice(start))
+  return parts
+}
+
+/** Combines Drittmittelgeber + Anschrift, mirroring _get_combined_partner_info(). */
+function combinedPartnerInfo(v: DrittmittelView): string {
+  return [v.drittmittelgeber, v.anschrift].filter(Boolean).join('\n')
+}
+
 /** DocumentSpec for the "Anzeige-DriMi" PDF. */
 export function anzeigeDrittmittelDoc<T>(
   template: string,
@@ -47,14 +70,21 @@ export function anzeigeDrittmittelDoc<T>(
       Datum: () => today(),
       LehrstuhlEinrichtung: (d) => view(d).organisation ?? '',
       Projektleitung: (d) => view(d).projektleitung ?? '',
-      'Bezeichnung des Vorhabens_1': (d) => view(d).projektName ?? '',
-      'Name und Anschrift des Drittmittelgebers 1': (d) => {
-        const v = view(d)
-        return [v.drittmittelgeber, v.anschrift].filter(Boolean).join('\n')
-      },
+
+      // --- Split für Bezeichnung des Vorhabens (Projektname), Schnitt bei 35 ---
+      'Bezeichnung des Vorhabens_1': (d) => splitText(view(d).projektName, 35)[0],
+      'Bezeichnung des Vorhabens_2': (d) => splitText(view(d).projektName, 35)[1],
+
+      // --- Split für Name und Anschrift des Drittmittelgebers, Schnitt bei 60 ---
+      'Name und Anschrift des Drittmittelgebers 1': (d) =>
+        splitText(combinedPartnerInfo(view(d)), 60)[0],
+      'Name und Anschrift des Drittmittelgebers_2': (d) =>
+        splitText(combinedPartnerInfo(view(d)), 60)[1],
+
       'Beginn - Laufzeit des Vorhabens': (d) => formatDate(view(d).beginn),
       'Ende - Laufzeit des Vorhabens': (d) => formatDate(view(d).ende),
       'Höhe und Zweckbestimmung der Mittel_1': (d) => formatAmount(view(d).betrag),
+      'Name in Druckbuchstaben': (d) => view(d).projektleitung ?? '',
     },
   }
 }
@@ -73,10 +103,19 @@ export function erklaerungDrittmittelDoc<T>(
       Datum: () => today(),
       LehrstuhlEinrichtung: (d) => view(d).organisation ?? '',
       'Name der Projektleitung': (d) => view(d).projektleitung ?? '',
-      Zuwendungssgeber: (d) => view(d).drittmittelgeber ?? '',
+
+      // --- Split für Zuwendungsgeber, Schnitt bei 25 ---
+      Zuwendungssgeber: (d) => splitText(view(d).drittmittelgeber, 25)[0],
+      'Zuwendungssgeber 2': (d) => splitText(view(d).drittmittelgeber, 25)[1],
+
       'ggf Datum  Förderkennzeichen': (d) => view(d).kennzeichen ?? '',
       'FuEVertrag Datum': (d) => formatDate(view(d).beginn),
-      'Bezeichnung des Vorhabens 1': (d) => view(d).projektName ?? '',
+
+      // --- Split für Bezeichnung des Vorhabens, Schnitte bei 35 und 95 ---
+      'Bezeichnung des Vorhabens 1': (d) => splitText(view(d).projektName, 35, 95)[0],
+      'Bezeichnung des Vorhabens 2': (d) => splitText(view(d).projektName, 35, 95)[1],
+      'Bezeichnung des Vorhabens 3': (d) => splitText(view(d).projektName, 35, 95)[2],
+      'Name Projektleitung in Druckbuchstaben': (d) => view(d).projektleitung ?? '',
     },
   }
 }

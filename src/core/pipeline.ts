@@ -113,3 +113,47 @@ export async function runPipeline(
 
   return { outputDir, extractedJson: jsonPath, filledPdfs, emailDraft: emailPath }
 }
+
+/**
+ * Re-runs steps 3–5 of the pipeline (validate → render → email) using
+ * pre-supplied data, skipping text extraction and LLM. Writes outputs to the
+ * given outputDir, overwriting previously generated files in place.
+ */
+export async function rerunPipeline(
+  caseId: string,
+  outputDir: string,
+  rawData: unknown
+): Promise<RunResult> {
+  const caseModule = resolveCase(caseId) as CaseModule<any>
+
+  if (!fs.existsSync(outputDir)) {
+    throw new Error(`Output-Verzeichnis nicht gefunden: ${outputDir}`)
+  }
+
+  console.log(`\nRe-processing with edited data  [case: ${caseModule.id}]`)
+  console.log(`Output dir: ${outputDir}\n`)
+
+  console.log('[1/3] Validating edited data...')
+  const validated = validateData(rawData as Record<string, unknown>, caseModule.schema)
+  const derived = caseModule.derive ? caseModule.derive(validated) : {}
+
+  const jsonPath = path.join(outputDir, 'extracted_data.json')
+  await writeFile(jsonPath, JSON.stringify(rawData, null, 2), 'utf-8')
+
+  console.log('[2/3] Rendering documents...')
+  const filledPdfs: string[] = []
+  for (const spec of caseModule.documents) {
+    const outPath = path.join(outputDir, outputNameFor(spec))
+    await getRenderer(spec.kind).render(spec, validated, derived, outPath)
+    filledPdfs.push(outPath)
+  }
+
+  console.log('[3/3] Generating email draft...')
+  const emailText = await generateEmail(validated, caseModule.email)
+  const emailPath = path.join(outputDir, 'email_draft.txt')
+  await writeFile(emailPath, emailText, 'utf-8')
+
+  console.log(`\nDone. Review the outputs in: ${outputDir}/\n`)
+
+  return { outputDir, extractedJson: jsonPath, filledPdfs, emailDraft: emailPath }
+}

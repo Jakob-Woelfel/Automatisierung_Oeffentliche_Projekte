@@ -76,6 +76,14 @@
   table.kv td.k { color: var(--muted); width: 42%; word-break: break-word; }
   table.kv td.v { word-break: break-word; }
   td.v.empty { color: var(--err); font-style: italic; }
+  .kv-input {
+    width: 100%; background: var(--card); border: 1px solid var(--accent);
+    border-radius: 6px; padding: 5px 8px; color: var(--text); font: inherit; font-size: 14px;
+  }
+  .kv-input:focus { outline: none; border-color: #6fa0ff; box-shadow: 0 0 0 2px rgba(79,140,255,.2); }
+  .section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-row h2.section { margin: 0; }
+  .edit-actions { display: none; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
   .missing { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 13px;
     background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #ffe9b8; }
   textarea {
@@ -119,9 +127,16 @@
     <div class="card alert err hidden" id="error"></div>
 
     <div class="card hidden" id="results">
-      <h2 class="section">Extrahierte Daten</h2>
+      <div class="section-row">
+        <h2 class="section">Extrahierte Daten</h2>
+        <button class="copy" id="editBtn">✏ Bearbeiten</button>
+      </div>
       <table class="kv"><tbody id="kvBody"></tbody></table>
       <div class="missing hidden" id="missing"></div>
+      <div class="edit-actions" id="editActions">
+        <button class="go" id="saveReprocess" style="flex:1;margin:0">Speichern und Dokumente neu erstellen</button>
+        <button class="copy" id="cancelEdit">Abbrechen</button>
+      </div>
 
       <h2 class="section" style="margin-top:26px">E-Mail-Entwurf</h2>
       <textarea id="email" readonly></textarea>
@@ -141,8 +156,11 @@
         fileName = $('fileName'), go = $('go'),
         errorBox = $('error'), results = $('results'),
         kvBody = $('kvBody'), missing = $('missing'),
-        emailBox = $('email'), filesBox = $('files'), outdir = $('outdir');
+        emailBox = $('email'), filesBox = $('files'), outdir = $('outdir'),
+        editBtn = $('editBtn'), editActions = $('editActions'),
+        saveReprocess = $('saveReprocess'), cancelEdit = $('cancelEdit');
   let chosen = null;
+  let currentResult = null;
 
   // Populate the case dropdown from the server.
   fetch('/api/cases').then(r => r.json()).then(data => {
@@ -201,21 +219,93 @@
     }
   });
 
-  function renderResults(data) {
-    // Key/value table of the extracted fields (missing_fields shown separately).
+  function renderTable(extractedData, editable) {
     kvBody.innerHTML = '';
-    const entries = Object.entries(data.extractedData || {})
-      .filter(([k]) => k !== 'missing_fields');
+    const entries = Object.entries(extractedData || {}).filter(([k]) => k !== 'missing_fields');
     for (const [k, v] of entries) {
       const tr = document.createElement('tr');
-      const empty = v === null || v === '' || v === undefined;
-      const val = empty ? '— fehlt —'
-        : (typeof v === 'object' ? JSON.stringify(v) : String(v));
-      tr.innerHTML = '<td class="k"></td><td class="v' + (empty ? ' empty' : '') + '"></td>';
+      tr.innerHTML = '<td class="k"></td><td class="v"></td>';
       tr.children[0].textContent = k;
-      tr.children[1].textContent = val;
+      if (editable) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'kv-input';
+        input.dataset.key = k;
+        input.value = (v === null || v === undefined) ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+        tr.children[1].appendChild(input);
+      } else {
+        const empty = v === null || v === '' || v === undefined;
+        const val = empty ? '— fehlt —' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+        tr.children[1].textContent = val;
+        if (empty) tr.children[1].classList.add('empty');
+      }
       kvBody.appendChild(tr);
     }
+  }
+
+  function setEditMode(on) {
+    if (on) {
+      editBtn.textContent = '✕ Abbrechen';
+      editActions.style.display = 'flex';
+      renderTable(currentResult.extractedData, true);
+    } else {
+      editBtn.textContent = '✏ Bearbeiten';
+      editActions.style.display = 'none';
+      renderTable(currentResult.extractedData, false);
+    }
+  }
+
+  function collectEditedData() {
+    const out = {};
+    const original = currentResult.extractedData;
+    for (const input of kvBody.querySelectorAll('input.kv-input')) {
+      const key = input.dataset.key;
+      const str = input.value.trim();
+      if (str === '') {
+        out[key] = null;
+      } else if (typeof original[key] === 'number') {
+        const n = Number(str);
+        out[key] = isNaN(n) ? str : n;
+      } else {
+        out[key] = str;
+      }
+    }
+    if (original.missing_fields !== undefined) out.missing_fields = original.missing_fields;
+    return out;
+  }
+
+  editBtn.addEventListener('click', () => {
+    const entering = editActions.style.display !== 'flex';
+    setEditMode(entering);
+  });
+
+  cancelEdit.addEventListener('click', () => setEditMode(false));
+
+  saveReprocess.addEventListener('click', async () => {
+    const editedData = collectEditedData();
+    hideError();
+    saveReprocess.disabled = true;
+    saveReprocess.innerHTML = '<span class="spinner"></span>Dokumente werden neu erstellt …';
+    try {
+      const res = await fetch('/api/reprocess', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case: currentResult.case, outputDir: currentResult.outputDir, data: editedData }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('Fehler ' + res.status));
+      renderResults(data);
+    } catch (err) {
+      showError(err.message || String(err));
+    } finally {
+      saveReprocess.disabled = false;
+      saveReprocess.textContent = 'Speichern und Dokumente neu erstellen';
+    }
+  });
+
+  function renderResults(data) {
+    currentResult = data;
+    setEditMode(false);
 
     const mf = data.extractedData && data.extractedData.missing_fields;
     if (Array.isArray(mf) && mf.length) {
