@@ -20,7 +20,7 @@ import os from 'os'
 import path from 'path'
 import { readFile, writeFile, mkdtemp } from 'fs/promises'
 
-import { runPipeline } from '../core/pipeline'
+import { runPipeline, rerunPipeline } from '../core/pipeline'
 import { listCases, resolveCase, DEFAULT_CASE } from '../cases/registry'
 
 const PORT = Number(process.env.PORT) || 3000
@@ -119,6 +119,48 @@ async function handleProcess(req: http.IncomingMessage, res: http.ServerResponse
   }
 }
 
+/** POST /api/reprocess — body is JSON { case, outputDir, data }; re-renders docs with edited data. */
+async function handleReprocess(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const body = await readBody(req)
+  let payload: { case?: string; outputDir?: string; data?: unknown }
+  try {
+    payload = JSON.parse(body.toString('utf-8'))
+  } catch {
+    return sendJson(res, 400, { error: 'Ungültiges JSON.' })
+  }
+
+  const caseId = payload.case || DEFAULT_CASE
+  const rawOutputDir = payload.outputDir
+  if (!rawOutputDir) return sendJson(res, 400, { error: 'outputDir fehlt.' })
+
+  const resolved = path.resolve(rawOutputDir)
+  if (resolved !== OUTPUT_ROOT && !resolved.startsWith(OUTPUT_ROOT + path.sep)) {
+    return sendJson(res, 403, { error: 'Ungültiges outputDir.' })
+  }
+
+  try {
+    resolveCase(caseId)
+  } catch (err) {
+    return sendJson(res, 400, { error: (err as Error).message })
+  }
+
+  try {
+    const result = await rerunPipeline(caseId, resolved, payload.data ?? {})
+
+    const extractedData = JSON.parse(await readFile(result.extractedJson, 'utf-8'))
+    const emailDraft = await readFile(result.emailDraft, 'utf-8')
+
+    const files = [result.extractedJson, ...result.filledPdfs, result.emailDraft].map((p) => ({
+      name: path.basename(p),
+      download: '/api/download?file=' + encodeURIComponent(path.relative(OUTPUT_ROOT, path.resolve(p))),
+    }))
+
+    sendJson(res, 200, { case: caseId, outputDir: result.outputDir, extractedData, emailDraft, files })
+  } catch (err) {
+    sendJson(res, 500, { error: (err as Error).message })
+  }
+}
+
 /** GET /api/download?file=<rel> — stream an output artifact, traversal-guarded. */
 function handleDownload(res: http.ServerResponse, url: URL): void {
   const rel = url.searchParams.get('file') || ''
@@ -152,6 +194,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/process') {
       return await handleProcess(req, res, url)
+    }
+    if (req.method === 'POST' && url.pathname === '/api/reprocess') {
+      return await handleReprocess(req, res)
     }
     if (req.method === 'GET' && url.pathname === '/api/download') {
       return handleDownload(res, url)
