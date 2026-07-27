@@ -128,6 +128,9 @@ const drittmittelView = (d: ContractData): DrittmittelView => ({
   ende: d.project_end_date,
   betrag: d.funding_amount,
   kennzeichen: d.contract_reference,
+  // contact_person is only ever one of the fixed professors above or null
+  // (enforced by EXTRACTION_PROMPT), so "not null" means "is a known Lehrstuhlinhaber".
+  projektleitungIstLehrstuhlinhaber: d.contact_person !== null,
 })
 
 export const oeffentlichCase: CaseModule<ContractData> = {

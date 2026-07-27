@@ -31,6 +31,8 @@ export interface DrittmittelView {
   betrag: number | null
   /** Förderkennzeichen / Vertrags-/Auftragsnummer */
   kennzeichen: string | null
+  /** True if `projektleitung` is a known Lehrstuhlinhaber (not just any contact). */
+  projektleitungIstLehrstuhlinhaber?: boolean
 }
 
 /**
@@ -51,9 +53,14 @@ function splitText(text: string | null | undefined, ...limits: number[]): string
   return parts
 }
 
-/** Combines Drittmittelgeber + Anschrift, mirroring _get_combined_partner_info(). */
+/**
+ * Combines Drittmittelgeber + Anschrift, mirroring _get_combined_partner_info().
+ * Omits the name if it is already contained in the address, to avoid duplication.
+ */
 function combinedPartnerInfo(v: DrittmittelView): string {
-  return [v.drittmittelgeber, v.anschrift].filter(Boolean).join('\n')
+  const { drittmittelgeber: name, anschrift: address } = v
+  const nameAlreadyInAddress = !!name && !!address && address.toLowerCase().includes(name.toLowerCase())
+  return [nameAlreadyInAddress ? null : name, address].filter(Boolean).join('\n')
 }
 
 /** DocumentSpec for the "Anzeige-DriMi" PDF. */
@@ -116,6 +123,8 @@ export function erklaerungDrittmittelDoc<T>(
       'Bezeichnung des Vorhabens 2': (d) => splitText(view(d).projektName, 35, 95)[1],
       'Bezeichnung des Vorhabens 3': (d) => splitText(view(d).projektName, 35, 95)[2],
       'Name Projektleitung in Druckbuchstaben': (d) => view(d).projektleitung ?? '',
+      'Name Lehrstuhlinhaber_in in Druckbuchstaben': (d) =>
+        view(d).projektleitungIstLehrstuhlinhaber ? view(d).projektleitung ?? '' : '',
     },
   }
 }
