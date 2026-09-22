@@ -7,3 +7,7 @@ __pycache__/
 node_modules/
 dist/
 CLAUDE.md
+
+# Real contracts / mails are confidential — never commit inputs (repo is public)
+input/*
+!input/.gitkeep
